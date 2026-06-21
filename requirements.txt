@@ -1,0 +1,28 @@
+# Core
+numpy>=1.24,<2.0
+opencv-python>=4.8,<5.0
+PyYAML>=6.0,<7.0
+scipy>=1.10,<2.0
+
+# Detection / deep learning
+torch>=2.0,<3.0
+torchvision>=0.15,<1.0
+ultralytics>=8.1,<9.0    # provides the YOLO API used for YOLOv10 .pt checkpoints
+
+# OCR
+paddleocr>=2.7,<3.0
+paddlepaddle>=2.5,<3.0   # CPU build; install paddlepaddle-gpu separately for GPU OCR
+
+# Storage
+SQLAlchemy>=2.0,<3.0
+psycopg2-binary>=2.9,<3.0   # only needed if storage.backend = postgresql
+
+# Geometry helpers
+shapely>=2.0,<3.0
+
+# Dashboard
+streamlit>=1.30,<2.0
+pandas>=2.0,<3.0
+
+# Dev / testing
+pytest>=7.4,<8.0

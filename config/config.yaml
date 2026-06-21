@@ -1,0 +1,187 @@
+# =============================================================================
+# Traffic Violation Detection System — Main Configuration
+# Every path, threshold, and toggle used anywhere in the codebase is defined
+# here. Nothing in src/ should hardcode a number or path that belongs here.
+# =============================================================================
+
+system:
+  name: "traffic-violation-system"
+  target_fps: 5                     # frames/sec the pipeline aims to process
+  log_level: "INFO"
+  device: "auto"                    # "auto" | "cuda" | "cpu"
+
+# -----------------------------------------------------------------------------
+# Input source(s). Supports a single source or a list for multi-camera runs.
+# -----------------------------------------------------------------------------
+sources:
+  - camera_id: "cam_01"
+    uri: "data/sample_videos/intersection_01.mp4"   # file path, RTSP, or webcam index
+    gps_lat: 12.9716
+    gps_lon: 77.5946
+    zone_config: "config/zones/cam_01_zones.json"
+
+# -----------------------------------------------------------------------------
+# Stage 1: Preprocessing
+# -----------------------------------------------------------------------------
+preprocessing:
+  enabled: true
+  clahe:
+    clip_limit: 2.0
+    tile_grid_size: [8, 8]
+  brightness_threshold_low: 60        # mean luminance below this triggers CLAHE
+  blur:
+    laplacian_var_threshold: 100.0    # below this, frame is flagged "blurry"
+    skip_blurry_if_recent_sharp_exists: true
+    recent_sharp_window_frames: 10
+  rain_mitigation:
+    enabled: true
+    median_blur_kernel: 3
+    sharpen_strength: 0.5
+  shadow_gamma_correction: 0.85
+
+# -----------------------------------------------------------------------------
+# Stage 2: Detection
+# -----------------------------------------------------------------------------
+detection:
+  backend: "yolov10"                  # only yolov10 implemented; kept as a key for future swap
+  weights_path: "data/models/yolov10_traffic.pt"
+  confidence_threshold: 0.4
+  iou_threshold: 0.5
+  image_size: 960
+  classes:
+    # class_id: name  (must match the .pt model's training classes)
+    0: "car"
+    1: "truck"
+    2: "bus"
+    3: "motorcycle"
+    4: "auto_rickshaw"
+    5: "person"
+  vehicle_classes: ["car", "truck", "bus", "motorcycle", "auto_rickshaw"]
+  person_class: "person"
+
+# -----------------------------------------------------------------------------
+# Stage 3: Tracking
+# -----------------------------------------------------------------------------
+tracking:
+  backend: "bytetrack"
+  track_thresh: 0.5
+  match_thresh: 0.8
+  track_buffer_frames: 30             # how long to keep a lost track alive
+
+# -----------------------------------------------------------------------------
+# Stage 4: Violation Detection
+# -----------------------------------------------------------------------------
+violations:
+  helmet:
+    enabled: true
+    classifier_weights: "data/models/helmet_classifier.pt"
+    head_crop_fraction: 0.35          # top fraction of rider bbox treated as head region
+    confidence_threshold: 0.6
+    min_crop_size: 20                 # px, below this the crop is unreliable
+
+  seatbelt:
+    enabled: true
+    classifier_weights: "data/models/seatbelt_classifier.pt"
+    applies_to_classes: ["car"]
+    windshield_crop_top_fraction: 0.0
+    windshield_crop_bottom_fraction: 0.45
+    min_crop_width: 40
+    min_crop_height: 40
+    confidence_threshold: 0.6
+
+  triple_riding:
+    enabled: true
+    iou_threshold: 0.3
+    max_allowed_riders: 2             # flag if rider_count > this
+
+  wrong_side:
+    enabled: true
+    angle_threshold_degrees: 100      # cos-sim angle beyond this = wrong direction
+    min_track_history_for_direction: 5
+
+  stop_line:
+    enabled: true
+    crossing_margin_px: 2
+
+  red_light:
+    enabled: true
+    signal_state_source: "manual"     # "manual" | "classifier"
+    signal_classifier_weights: "data/models/signal_state_classifier.pt"
+
+  illegal_parking:
+    enabled: true
+    dwell_threshold_seconds: 120
+    centroid_drift_tolerance_px: 25
+
+  confidence_routing:
+    auto_approve_threshold: 0.90
+    review_queue_threshold: 0.50      # below this -> low_confidence bucket too
+
+# -----------------------------------------------------------------------------
+# Stage 5: License Plate Recognition
+# -----------------------------------------------------------------------------
+lpr:
+  enabled: true
+  plate_detector_weights: "data/models/plate_yolov10.pt"
+  plate_confidence_threshold: 0.5
+  ocr_backend: "paddleocr"
+  ocr_lang: "en"
+  ocr_use_gpu: true
+  min_plate_width_px: 70
+  super_resolution:
+    enabled: true
+    upscale_factor: 4
+    backend: "bicubic"               # "bicubic" | "esrgan" (esrgan needs weights_path)
+    esrgan_weights_path: "data/models/esrgan_plate_sr.pt"
+  format_region: "IN"                # country plate-format ruleset to validate against
+
+# -----------------------------------------------------------------------------
+# Stage 6: Evidence Generation
+# -----------------------------------------------------------------------------
+evidence:
+  output_dir: "data/evidence"
+  jpeg_quality: 92
+  draw_confidence_on_frame: true
+
+# -----------------------------------------------------------------------------
+# Stage 7: Storage
+# -----------------------------------------------------------------------------
+storage:
+  backend: "sqlite"                   # "sqlite" | "postgresql"
+  sqlite_path: "data/db/violations.db"
+  postgresql:
+    host: "localhost"
+    port: 5432
+    database: "traffic_violations"
+    user: "postgres"
+    password: ""                      # override via env var TVS_DB_PASSWORD
+
+# -----------------------------------------------------------------------------
+# Dashboard
+# -----------------------------------------------------------------------------
+dashboard:
+  host: "0.0.0.0"
+  port: 8501
+  default_page_size: 25
+
+# -----------------------------------------------------------------------------
+# Training (used by scripts/train_*.py, not by the live pipeline)
+# -----------------------------------------------------------------------------
+training:
+  helmet_classifier:
+    data_dir: "data/training/helmet"   # expects data_dir/{compliant,non_compliant}/*.jpg
+    epochs: 15
+    batch_size: 32
+    learning_rate: 0.001
+    val_split: 0.2
+    image_size: 96
+    output_path: "data/models/helmet_classifier.pt"
+
+  seatbelt_classifier:
+    data_dir: "data/training/seatbelt"
+    epochs: 15
+    batch_size: 32
+    learning_rate: 0.001
+    val_split: 0.2
+    image_size: 96
+    output_path: "data/models/seatbelt_classifier.pt"

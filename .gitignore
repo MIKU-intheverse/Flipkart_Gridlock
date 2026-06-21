@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Runtime data — not committed; populated at runtime or downloaded separately
+data/models/*.pt
+data/db/*.db
+data/evidence/*.jpg
+data/training/
+data/sample_videos/
+!data/models/.gitkeep
+!data/db/.gitkeep
+!data/evidence/.gitkeep
+
+.DS_Store
+*.log
