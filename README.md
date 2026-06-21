@@ -56,22 +56,6 @@ pip install -r requirements.txt
 pip install -e .          # makes `traffic_system` importable as a package
 ```
 
-### Models you need to provide
-
-This repository ships **no pretrained weights** (you said you'll bring your
-own dataset). Place the following files before running the pipeline:
-
-| File | Used by | How to get it |
-|---|---|---|
-| `data/models/yolov10_traffic.pt` | Vehicle/person detection | Fine-tune YOLOv10 on your vehicle dataset (Ultralytics training CLI/API) |
-| `data/models/plate_yolov10.pt` | Plate localization | Fine-tune a YOLOv10 model on a plate-bounding-box dataset |
-| `data/models/helmet_classifier.pt` | Helmet check | Run `scripts/train_helmet_classifier.py` (see below) |
-| `data/models/seatbelt_classifier.pt` | Seatbelt check | Run `scripts/train_seatbelt_classifier.py` (see below) |
-
-Update the corresponding `*_weights` / `*_path` keys in `config/config.yaml`
-if you store these files elsewhere — nothing in the code hardcodes these
-paths outside of config.yaml.
-
 ## Configuration
 
 Every threshold, path, and toggle lives in `config/config.yaml`. Common
